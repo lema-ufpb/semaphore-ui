@@ -1,0 +1,62 @@
+services:
+  semaphore:
+    container_name: semaphore
+    hostname: semaphore
+    ports:
+      - 3000:3000 # Change-me in production
+    image: semaphoreui/semaphore:v2.12.14
+    environment:
+      SEMAPHORE_USE_REMOTE_RUNNER: $SEMAPHORE_USE_REMOTE_RUNNER
+      SEMAPHORE_WEB_ROOT: $SEMAPHORE_WEB_ROOT
+      SEMAPHORE_DB_DIALECT: postgres
+      SEMAPHORE_DB_HOST: postgres
+      SEMAPHORE_DB_NAME: $SEMAPHORE_DB_NAME
+      SEMAPHORE_DB_USER: $SEMAPHORE_DB_USER
+      SEMAPHORE_DB_PASS: $SEMAPHORE_DB_PASS
+      SEMAPHORE_ADMIN: $SEMAPHORE_ADMIN
+      SEMAPHORE_ADMIN_PASSWORD: $SEMAPHORE_ADMIN_PASSWORD
+      SEMAPHORE_ADMIN_NAME: $SEMAPHORE_ADMIN_NAME
+      SEMAPHORE_ADMIN_EMAIL: $SEMAPHORE_ADMIN_EMAIL
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: $SEMAPHORE_ACCESS_KEY_ENCRYPTION
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - semaphore
+  postgres:
+    container_name: postgres-semaphore
+    hostname: postgres
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: $POSTGRES_DB
+    volumes:
+      - postgresdb-data:/var/lib/postgresql/data # development
+    #  - /var/lib/postgresql/data:/var/lib/postgresql/data # production
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 5
+    restart: always
+    networks:
+      - semaphore
+  pgsetup:
+    container_name: postgres-setup
+    hostname: postgres
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - "bash"
+      - "-c"
+      - |
+        echo "Creating database..."
+        psql postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432 -c 'create database $POSTGRES_DB;'
+networks:
+  semaphore:
+volumes:
+  postgresdb-data:
